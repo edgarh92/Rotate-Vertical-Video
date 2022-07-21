@@ -42,9 +42,12 @@ class ffmpegProcesser():
                     transpose_flag = "transpose=1,"
                 else:
                     transpose_flag = transpose_flag + "transpose=1,"
-        print(transpose_flag)
-        return transpose_flag[:-1]
+            return transpose_flag[:-1]
+        else:
+            return None
 
+        print(transpose_flag)
+        
     def remove_rotation(self):
         if which("ffmpeg") is not None:
             print(f"Removing rotation /tmp/{self.base_filename}")
@@ -60,14 +63,20 @@ class ffmpegProcesser():
                     ).communicate()
     def correct_orientation(self, transpose_flags):
         filename, ext = self.base_filename.split(".")
+        vf_filters = """zscale=t=linear:npl=200,format=gbrpf32le,
+                zscale=p=bt709,tonemap=tonemap=mobius:desat=2,
+                zscale=t=bt709:m=bt709:r=tv,format=yuv420p"""
+        
+        if transpose_flags is not None:
+            vf_filters = vf_filters + f",{transpose_flags}"
         print(f"Correcting orientation /tmp/{self.base_filename}")
-
+        if not os.path.exists(self.output_location):
+            os.makedirs(self.output_location)
         if which("ffmpeg") is not None:
             stdout, stderr = subprocess.Popen(
             [
                 "ffmpeg", "-hide_banner", "-loglevel", "error",
-                "-i", f'/tmp/{self.base_filename}', "-vf",
-                f"{transpose_flags},zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p",
+                "-i", f"/tmp/{self.base_filename}", "-vf", vf_filters,
                 "-crf", "23",
                 "-c:a", "copy",
                 f"{self.output_location}/{filename}.mp4"] , 
@@ -75,6 +84,7 @@ class ffmpegProcesser():
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE
                 ).communicate()
+            print(stdout)
             print(stderr)
 
     def run_ffmpeg_commands(self):

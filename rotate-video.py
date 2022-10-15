@@ -150,7 +150,7 @@ def rotate_video(video_file_list: list):
 
     for file in video_file_list:        
         video_rotation_info = metadataProcessor(file).parse_video_data()
-        ffmpegProcesser(file,video_rotation_info).run_ffmpeg_commands()
+        ffmpegProcesser(file, video_rotation_info).run_ffmpeg_commands()
 
 
 acceptedFormats = ('.avi', '.mp4', '.mp3', '.mxf', '.mov', '.wav', '.aif')
@@ -160,7 +160,8 @@ if __name__ == "__main__":
         print("FFprobe Not Installed")
         exit(1)
     parser = argparse.ArgumentParser(
-        description="A program that generates metadata summaries and can extract audio from video files")
+        description="A program that generates metadata summaries \
+            and can extract audio from video files")
     parser.add_argument(
         "-f",
         "--files",
@@ -176,9 +177,8 @@ if __name__ == "__main__":
             for file in directoryFiles:
                 if file.lower().endswith(acceptedFormats):
                     fileList.append(os.path.join(files, file))
-        elif os.path.isfile(files):
-            if files.lower().endswith(acceptedFormats):
-                fileList.append(os.path.abspath(files))
+        elif files.lower().endswith(acceptedFormats):
+            fileList.append(os.path.abspath(files))
 
     sourceFiles = sorted(fileList)
     if not sourceFiles:

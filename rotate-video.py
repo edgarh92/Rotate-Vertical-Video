@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 
-from cgitb import handler
 import os
 import subprocess
 import argparse
@@ -9,6 +8,7 @@ import json
 from shutil import which
 from pymediainfo import MediaInfo
 import logging
+from typing import Union
 
 
 def log_message(message):
@@ -16,23 +16,20 @@ def log_message(message):
     file_handler.setLevel(logging.DEBUG)
     logger = logging.getLogger()
     logger.addHandler(file_handler)
-
     return logger
 
 
 class ffmpegProcesser():
-    def __init__(self, source_file, video_rotation_info):
+    def __init__(self, source_file: str, video_rotation_info):
         self.source_file = source_file
         self.base_filename = os.path.basename(source_file)
         self.video_rotation_info = int(float(video_rotation_info))
         self.output_location = os.path.join(os.path.dirname(source_file), "corrected")
 
-
-    def determine_rotations(self):
+    def determine_rotations(self) -> Union[str , None]:
         rotations = None
         transpose_flag = ""
-        
-
+    
         if self.video_rotation_info != 0:
             rotations = int(self.video_rotation_info / 90)
             for i in range(rotations):
@@ -43,8 +40,6 @@ class ffmpegProcesser():
             return transpose_flag[:-1]
         else:
             return None
-
-        print(transpose_flag)
         
     def remove_rotation(self):
         '''Caches temporary file in user temp storage'''
@@ -53,15 +48,15 @@ class ffmpegProcesser():
             self.temp_file = f'/tmp/{self.base_filename}'
             print(f"Removing rotation {self.source_file}")
             stdout, stderr = subprocess.Popen(
-                [
-                    "ffmpeg", "-hide_banner", "-loglevel", "error",
-                    "-i", f"{self.source_file}",
-                    "-c", "copy", "-metadata:s:v:0",
-                    "rotate=0", self.temp_file] , 
-                    universal_newlines=True, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE
-                    ).communicate()
+                ["ffmpeg",
+                "-hide_banner",
+                "-loglevel", "error",
+                "-i", f"{self.source_file}",
+                "-c", "copy", "-metadata:s:v:0",
+                "rotate=0", self.temp_file], 
+                universal_newlines=True, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE).communicate()
                     
             if stderr:
                 if os.path.exists(self.temp_file):
@@ -83,12 +78,14 @@ class ffmpegProcesser():
             os.makedirs(self.output_location)
         if which("ffmpeg") is not None:
             stdout, stderr = subprocess.Popen(
-            [
-                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                ["ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
                 "-i", self.temp_file, "-vf", vf_filters,
                 "-crf", "23",
                 "-c:a", "copy",
-                f"{self.output_location}/{filename}.mp4"] , 
+                f"{self.output_location}/{filename}.mp4"], 
                 universal_newlines=True, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE
@@ -105,39 +102,33 @@ class ffmpegProcesser():
         self.correct_orientation(self.determine_rotations())
 
 
-
-
 class metadataProcessor():
-    def __init__(self, source_file):
+    def __init__(self, source_file: str):
         self.source_file = source_file
         self.video_object = None
 
-    def get_rotation_metadata (self) -> int:
-        for i in range(len(self.video_object)):
-            
-            if self.video_object['media']['track'][i]["StreamKind"] == "Video":
-                rotation = self.video_object['media']['track'][1]['Rotation']
+    def get_rotation_metadata(self) -> str:
+        for track in self.video_object['media']['track']:
+            if track["StreamKind"] == "Video":
+                rotation = track['Rotation']
                 break
-
         return rotation
 
     def parse_video_data(self) -> str:
         '''Returns JSON of video rotation requested from MediaInfo'''
 
-        
-        media_info = MediaInfo.parse(self.source_file,
-                    output="JSON")
+        media_info = MediaInfo.parse(
+                self.source_file,
+                output="JSON")
         self.video_object = json.loads(media_info)
-        if self.video_object is not None:
-            rotation_data = self.get_rotation_metadata()
-            if rotation_data:
-                return rotation_data
-            else:
-                print("No attributes found")
-                return None
-        else:
+
+        rotation_data = self.get_rotation_metadata()
+        if rotation_data is None:
             print("No attributes found")
             return None
+        else:
+            return rotation_data
+
 
 def installed(program):
     ''' Check if a program is installed'''
@@ -146,21 +137,18 @@ def installed(program):
     else:
         return False
 
+
 def clean_up_files(file: os.path):
     if not os.remove(file):
         return FileNotFoundError
 
-    
 
-
-
-def rotate_video(videoFileList):
+def rotate_video(video_file_list: list):
     '''Obtain Video Rotate Information for a list of videos
     Calculates rotation  
     Executes Ffmpeg Rotation'''
 
-    aggregatedRotationInfo = []
-    for file in videoFileList:        
+    for file in video_file_list:        
         video_rotation_info = metadataProcessor(file).parse_video_data()
         ffmpegProcesser(file,video_rotation_info).run_ffmpeg_commands()
 
@@ -171,12 +159,17 @@ if __name__ == "__main__":
     if not installed("ffprobe"):
         print("FFprobe Not Installed")
         exit(1)
-    parser = argparse.ArgumentParser(description="A program that generates metadata summaries and can extract audio from video files")
-    parser.add_argument("-f", "--files", nargs="*", help="Indivudal files or directories to process")
+    parser = argparse.ArgumentParser(
+        description="A program that generates metadata summaries and can extract audio from video files")
+    parser.add_argument(
+        "-f",
+        "--files",
+        nargs="*",
+        help="Indivudal files or directories to process")
 
     args = parser.parse_args()
 
-    fileList = [] #Create list of files to process.
+    fileList = []  # Create list of files to process.
     for files in args.files:
         if os.path.isdir(files):
             directoryFiles = sorted(os.listdir(files))
@@ -191,5 +184,4 @@ if __name__ == "__main__":
     if not sourceFiles:
         print('No accepted files found. Drag files or folders or both.')
     else:
-        rotate_video(sourceFiles)        
-
+        rotate_video(sourceFiles)

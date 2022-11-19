@@ -105,30 +105,26 @@ class ffmpegProcesser():
 class metadataProcessor():
     def __init__(self, source_file: str):
         self.source_file = source_file
-        self.video_object = None
+        self._video_metadata = None
 
     def get_rotation_metadata(self) -> str:
-        for track in self.video_object['media']['track']:
+        for track in self.video_metadata['media']['track']:
             if track["StreamKind"] == "Video":
                 rotation = track['Rotation']
                 break
         return rotation
+    @property
+    def video_metadata(self) -> str:
+        if self._video_metadata is None:
+            '''Returns JSON of video rotation requested from MediaInfo'''
 
-    def parse_video_data(self) -> str:
-        '''Returns JSON of video rotation requested from MediaInfo'''
-
-        media_info = MediaInfo.parse(
-                self.source_file,
-                output="JSON")
-        self.video_object = json.loads(media_info)
-
-        rotation_data = self.get_rotation_metadata()
-        if rotation_data is None:
-            print("No attributes found")
-            return None
+            media_info = MediaInfo.parse(
+                    self.source_file,
+                    output="JSON")
+            self._video_object = json.loads(media_info)
+            return self._video_object
         else:
-            return rotation_data
-
+            return self._video_object
 
 def installed(program):
     ''' Check if a program is installed'''
@@ -149,7 +145,7 @@ def rotate_video(video_file_list: list):
     Executes Ffmpeg Rotation'''
 
     for file in video_file_list:        
-        video_rotation_info = metadataProcessor(file).parse_video_data()
+        video_rotation_info = metadataProcessor(file).get_rotation_metadata()
         ffmpegProcesser(file, video_rotation_info).run_ffmpeg_commands()
 
 

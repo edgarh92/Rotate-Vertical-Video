@@ -24,9 +24,16 @@ class ffmpegProcesser():
         self.source_file = source_file
         self.base_filename = os.path.basename(source_file)
         self.video_rotation_info = int(float(video_rotation_info))
-        self.output_location = os.path.join(os.path.dirname(source_file), "corrected")
+        self.output_location = os.path.join(os.path.dirname(source_file), "Rotated_Transcodes")
 
-    def determine_rotations(self) -> Union[str , None]:
+    def determine_rotations(self) -> Union[str, None]:
+        """Construct VF flags to instruct FFmpeg to rotate the given video by 90 degrees N times.
+
+        Returns:
+            Union[str, None]: transpose=1,
+            
+            Concatenated N times, if any.
+        """     
         rotations = None
         transpose_flag = ""
     
@@ -47,13 +54,13 @@ class ffmpegProcesser():
         if which("ffmpeg") is not None:
             self.temp_file = f'/tmp/{self.base_filename}'
             print(f"Removing rotation {self.source_file}")
-            stdout, stderr = subprocess.Popen(
-                ["ffmpeg",
-                "-hide_banner",
-                "-loglevel", "error",
-                "-i", f"{self.source_file}",
-                "-c", "copy", "-metadata:s:v:0",
-                "rotate=0", self.temp_file], 
+            stdout, stderr = subprocess.Popen([
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel", "error",
+                    "-i", f"{self.source_file}",
+                    "-c", "copy", "-metadata:s:v:0",
+                    "rotate=0", self.temp_file], 
                 universal_newlines=True, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE).communicate()
@@ -70,23 +77,22 @@ class ffmpegProcesser():
 
         vf_filters = """zscale=t=linear:npl=200,format=gbrpf32le,
                 zscale=p=bt709,tonemap=tonemap=mobius:desat=2,
-                zscale=t=bt709:m=bt709:r=tv,format=yuv420p"""
-        
+                zscale=t=bt709:m=bt709:r=tv,format=yuv420p"""        
         if transpose_flags is not None:
             vf_filters = vf_filters + f",{transpose_flags}"
         if not os.path.exists(self.output_location):
             os.makedirs(self.output_location)
         if which("ffmpeg") is not None:
-            stdout, stderr = subprocess.Popen(
-                ["ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-i", self.temp_file, "-vf", vf_filters,
-                "-crf", "23",
-                "-c:a", "copy",
-                f"{self.output_location}/{filename}.mp4"], 
-                universal_newlines=True, 
+            stdout, stderr = subprocess.Popen([
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-i", self.temp_file, "-vf", vf_filters,
+                    "-crf", "23",
+                    "-c:a", "copy",
+                    f"{self.output_location}/{filename}.mp4"],
+                universal_newlines=True,
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE
                 ).communicate()
@@ -103,6 +109,7 @@ class ffmpegProcesser():
 
 
 class metadataProcessor():
+
     def __init__(self, source_file: str):
         self.source_file = source_file
         self._video_metadata = None
@@ -113,6 +120,7 @@ class metadataProcessor():
                 rotation = track['Rotation']
                 break
         return rotation
+
     @property
     def video_metadata(self) -> str:
         if self._video_metadata is None:
@@ -125,6 +133,7 @@ class metadataProcessor():
             return self._video_object
         else:
             return self._video_object
+
 
 def installed(program):
     ''' Check if a program is installed'''
@@ -141,7 +150,7 @@ def clean_up_files(file: os.path):
 
 def rotate_video(video_file_list: list):
     '''Obtain Video Rotate Information for a list of videos
-    Calculates rotation  
+    Calculates rotation
     Executes Ffmpeg Rotation'''
 
     for file in video_file_list:        

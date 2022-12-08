@@ -51,24 +51,23 @@ class ffmpegProcesser():
     def remove_rotation(self):
         '''Caches temporary file in user temp storage'''
 
-        if which("ffmpeg") is not None:
-            self.temp_file = f'/tmp/{self.base_filename}'
-            print(f"Removing rotation {self.source_file}")
-            stdout, stderr = subprocess.Popen([
-                    "ffmpeg",
-                    "-hide_banner",
-                    "-loglevel", "error",
-                    "-i", f"{self.source_file}",
-                    "-c", "copy", "-metadata:s:v:0",
-                    "rotate=0", self.temp_file], 
-                universal_newlines=True, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE).communicate()
-                    
-            if stderr:
-                if os.path.exists(self.temp_file):
-                    clean_up_files(self.temp_file)
-                return None
+        self.temp_file = f'/tmp/{self.base_filename}'
+        print(f"Removing rotation {self.source_file}")
+        stdout, stderr = subprocess.Popen([
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel", "error",
+                "-i", f"{self.source_file}",
+                "-c", "copy", "-metadata:s:v:0",
+                "rotate=0", self.temp_file], 
+            universal_newlines=True, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE).communicate()
+                
+        if stderr:
+            if os.path.exists(self.temp_file):
+                clean_up_files(self.temp_file)
+            return None
 
     def correct_orientation(self, transpose_flags):
         filename, ext = self.base_filename.split(".")
@@ -82,26 +81,25 @@ class ffmpegProcesser():
             vf_filters = vf_filters + f",{transpose_flags}"
         if not os.path.exists(self.output_location):
             os.makedirs(self.output_location)
-        if which("ffmpeg") is not None:
-            stdout, stderr = subprocess.Popen([
-                    "ffmpeg",
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-i", self.temp_file, "-vf", vf_filters,
-                    "-crf", "23",
-                    "-c:a", "copy",
-                    f"{self.output_location}/{filename}.mp4"],
-                universal_newlines=True,
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE
-                ).communicate()
-            if stdout:
-                print(f'Error: {stdout}. Deleting {self.temp_file}')
-                clean_up_files(self.temp_file)
-                clean_up_files(f"{self.output_location}/{filename}.mp4")
-            else:
-                print("Done")
+        stdout, stderr = subprocess.Popen([
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i", self.temp_file, "-vf", vf_filters,
+                "-crf", "23",
+                "-c:a", "copy",
+                f"{self.output_location}/{filename}.mp4"],
+            universal_newlines=True,
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+            ).communicate()
+        if stdout:
+            print(f'Error: {stdout}. Deleting {self.temp_file}')
+            clean_up_files(self.temp_file)
+            clean_up_files(f"{self.output_location}/{filename}.mp4")
+        else:
+            print("Done")
 
     def run_ffmpeg_commands(self):
         self.remove_rotation()
@@ -114,15 +112,15 @@ class metadataProcessor():
         self.source_file = source_file
         self._video_metadata = None
 
-    def get_rotation_metadata(self) -> str:
+    def get_rotation_metadata(self) -> int:
         for track in self.video_metadata['media']['track']:
             if track["StreamKind"] == "Video":
-                rotation = track['Rotation']
+                rotation = int(track['Rotation'])
                 break
         return rotation
 
     @property
-    def video_metadata(self) -> str:
+    def video_metadata(self) -> dict:
         if self._video_metadata is None:
             '''Returns JSON of video rotation requested from MediaInfo'''
 
